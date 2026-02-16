@@ -318,11 +318,13 @@ public class Huub_De_PGA extends JFrame {
             "Je antwoordt uitsluitend feitelijk en neutraal op basis van de personeelsgids. " + // user story 25    
                 // test
                 // test
+               
             
                 "AGENT 3 - INTERACTIE EN UX" +
             "Verwijs altijd naar de pagina waar de informatie is gevonden." + // US13
 
                 "AGENT 4 - BEHEER EN ONDERHOUD";
+        //test
             
 
         JSONArray messages = new JSONArray()
