@@ -22,7 +22,8 @@ public class Huub_De_PGA extends JFrame {
     private static final String API_KEY = System.getenv("OPENAI_API_KEY");
     private static final OkHttpClient CLIENT = new OkHttpClient();
 
-    private static final String PERSONEELSGIDS_VERSIE = "Personeelsgids BU Talentclass versie 2024.1"; // Geeft versie van de personeelsgids aan
+    private static final String PERSONEELSGIDS_VERSIE =
+            "Personeelsgids BU Talentclass versie 2024.1";
 
     private JPanel chatPanel;
     private JScrollPane scrollPane;
@@ -37,7 +38,6 @@ public class Huub_De_PGA extends JFrame {
     // ==============================
 
     static class Chunk {
-
         String text;
         List<Double> embedding;
         int page;
@@ -48,7 +48,6 @@ public class Huub_De_PGA extends JFrame {
             this.page = page;
         }
     }
-
 
     // ==============================
     // CONSTRUCTOR
@@ -79,6 +78,7 @@ public class Huub_De_PGA extends JFrame {
     // ==============================
 
     private void setupChatPanel() {
+
         chatPanel = new JPanel() {
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
@@ -100,6 +100,7 @@ public class Huub_De_PGA extends JFrame {
     }
 
     private void setupInputPanel() {
+
         inputField = new JTextField();
         JButton sendButton = new JButton("Verstuur");
 
@@ -123,6 +124,7 @@ public class Huub_De_PGA extends JFrame {
     // ==============================
 
     private void send() {
+
         String question = inputField.getText().trim();
         if (question.isEmpty()) return;
 
@@ -131,16 +133,34 @@ public class Huub_De_PGA extends JFrame {
 
         new Thread(() -> {
             try {
+
                 String answer = ask(question);
-                SwingUtilities.invokeLater(() -> addBubble(answer, false));
-            } catch (Exception ex) {
+
+                if (answer == null || answer.trim().isEmpty()) {
+                    answer = "Sorry, ik kon geen antwoord genereren.";
+                }
+
+                String finalAnswer = answer;
+
                 SwingUtilities.invokeLater(() ->
-                        addBubble("Er ging iets mis: " + ex.getMessage(), false));
+                        addBubble(finalAnswer, false));
+
+            } catch (Exception ex) {
+
+                ex.printStackTrace();
+
+                String msg = ex.getMessage() == null
+                        ? "Onbekende fout (check console)"
+                        : ex.getMessage();
+
+                SwingUtilities.invokeLater(() ->
+                        addBubble("Er ging iets mis: " + msg, false));
             }
         }).start();
     }
 
     private void addBubble(String text, boolean user) {
+
         JPanel row = new JPanel(new BorderLayout());
         row.setOpaque(false);
 
@@ -189,26 +209,20 @@ public class Huub_De_PGA extends JFrame {
             stripper.setEndPage(page);
 
             String pageText = stripper.getText(doc);
-
             List<String> parts = chunkText(pageText, 400);
 
-            for (String part : parts) {
+            for (String part : parts)
                 chunks.add(new Chunk(part, embed(part), page));
-            }
         }
 
         doc.close();
-    }
 
-    private static String loadPdf(String path) throws Exception {
-        PDDocument doc = Loader.loadPDF(new File(path));
-        PDFTextStripper stripper = new PDFTextStripper();
-        String text = stripper.getText(doc);
-        doc.close();
-        return text;
+        if (chunks.isEmpty())
+            throw new RuntimeException("Geen tekst uit personeelsgids geladen.");
     }
 
     private static List<String> chunkText(String text, int size) {
+
         List<String> result = new ArrayList<>();
         String[] words = text.split("\\s+");
 
@@ -216,10 +230,12 @@ public class Huub_De_PGA extends JFrame {
             result.add(String.join(" ",
                     Arrays.copyOfRange(words, i, Math.min(words.length, i + size))));
         }
+
         return result;
     }
 
     private static List<Double> embed(String input) throws Exception {
+
         JSONObject body = new JSONObject()
                 .put("model", "text-embedding-3-small")
                 .put("input", input);
@@ -232,22 +248,27 @@ public class Huub_De_PGA extends JFrame {
                         MediaType.parse("application/json")))
                 .build();
 
-        Response response = CLIENT.newCall(request).execute();
-        JSONArray arr = new JSONObject(response.body().string())
-                .getJSONArray("data")
-                .getJSONObject(0)
-                .getJSONArray("embedding");
+        try (Response response = CLIENT.newCall(request).execute()) {
 
-        List<Double> vector = new ArrayList<>();
-        for (int i = 0; i < arr.length(); i++)
-            vector.add(arr.getDouble(i));
+            if (!response.isSuccessful())
+                throw new RuntimeException("Embedding API error: " + response.code());
 
-        return vector;
+            JSONObject json = new JSONObject(response.body().string());
+
+            JSONArray arr = json.getJSONArray("data")
+                    .getJSONObject(0)
+                    .getJSONArray("embedding");
+
+            List<Double> vector = new ArrayList<>();
+            for (int i = 0; i < arr.length(); i++)
+                vector.add(arr.getDouble(i));
+
+            return vector;
+        }
     }
 
     private double cosine(List<Double> a, List<Double> b) {
         double dot = 0, na = 0, nb = 0;
-
         for (int i = 0; i < a.size(); i++) {
             dot += a.get(i) * b.get(i);
             na += a.get(i) * a.get(i);
@@ -260,18 +281,10 @@ public class Huub_De_PGA extends JFrame {
 
         List<Double> qVec = embed(query);
 
-        chunks.sort((a, b) -> Double.compare(
-                cosine(b.embedding, qVec),
-                cosine(a.embedding, qVec)
-        ));
+        chunks.sort((a, b) ->
+                Double.compare(cosine(b.embedding, qVec), cosine(a.embedding, qVec)));
 
-        List<Chunk> top = new ArrayList<>();
-
-        for (int i = 0; i < Math.min(4, chunks.size()); i++) {
-            top.add(chunks.get(i));
-        }
-
-        return top;
+        return chunks.subList(0, Math.min(4, chunks.size()));
     }
 
     // ==============================
@@ -281,8 +294,8 @@ public class Huub_De_PGA extends JFrame {
     private String ask(String question) throws Exception {
 
         List<Chunk> topChunks = search(question);
-        StringBuilder contextText = new StringBuilder();
 
+        StringBuilder contextText = new StringBuilder();
         for (Chunk c : topChunks) {
             contextText.append("PAGINA ")
                     .append(c.page)
@@ -292,6 +305,8 @@ public class Huub_De_PGA extends JFrame {
         }
 
         String contextString = contextText.toString();
+
+        // 👉 JOUW PROMPT EXACT
         String systemPrompt =
             "Je bent Huub, een professionele HR-assistent voor vragen over verlof. "
             + "Bepaal altijd eerst of de vraag daadwerkelijk over verlof gaat (zoals verlofsoorten, voorwaarden, aanvragen, opnemen, saldo, doorbetaling of gerelateerde regels). "
@@ -315,14 +330,12 @@ public class Huub_De_PGA extends JFrame {
 
         messages.put(new JSONObject()
                 .put("role", "user")
-                .put("content", "PERSONEELSGIDS:\n"
-                        + contextString
-                        + "\n\nVRAAG:\n" + question));
+                .put("content", "PERSONEELSGIDS:\n" + contextString + "\n\nVRAAG:\n" + question));
 
         JSONObject body = new JSONObject()
                 .put("model", "gpt-4o-mini")
                 .put("messages", messages)
-                .put("temperature", 0.1); 
+                .put("temperature", 0.1);
 
         Request request = new Request.Builder()
                 .url("https://api.openai.com/v1/chat/completions")
@@ -332,22 +345,26 @@ public class Huub_De_PGA extends JFrame {
                         MediaType.parse("application/json")))
                 .build();
 
-        Response response = CLIENT.newCall(request).execute();
+        try (Response response = CLIENT.newCall(request).execute()) {
 
-        String answer = new JSONObject(response.body().string())
-                .getJSONArray("choices")
-                .getJSONObject(0)
-                .getJSONObject("message")
-                .getString("content");
+            if (!response.isSuccessful())
+                throw new RuntimeException("Chat API error: " + response.code());
 
-        conversationHistory.add(new JSONObject().put("role", "user").put("content", question));
-        conversationHistory.add(new JSONObject().put("role", "assistant").put("content", answer));
+            JSONObject json = new JSONObject(response.body().string());
 
-        if (conversationHistory.size() > 12)
-            conversationHistory.subList(0,
-                    conversationHistory.size() - 12).clear();
+            String answer = json.getJSONArray("choices")
+                    .getJSONObject(0)
+                    .getJSONObject("message")
+                    .getString("content");
 
-        return answer;
+            conversationHistory.add(new JSONObject().put("role", "user").put("content", question));
+            conversationHistory.add(new JSONObject().put("role", "assistant").put("content", answer));
+
+            if (conversationHistory.size() > 12)
+                conversationHistory.subList(0, conversationHistory.size() - 12).clear();
+
+            return answer;
+        }
     }
 
     // ==============================
