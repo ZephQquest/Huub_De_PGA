@@ -345,7 +345,7 @@ public class Huub_De_PGA extends JFrame {
 
 "Bron: [Vermeld hoofdstuktitel of sectienaam EN paginanummer uit de gids. Indien niet gevonden: N.v.t.] " +
 
-"Disclaimer: Deze informatie is informatief en niet juridisch bindend. Raadpleeg bij twijfel altijd HR. " +
+"Disclaimer: Deze informatie is mogelijk niet volledig of niet actuel. Deze informatie is niet juridisch bindend. Raadpleeg bij twijfel altijd HR. " +
 
 "<context> " +
 "{{hier de tekst uit de personeelsgids}} " +
