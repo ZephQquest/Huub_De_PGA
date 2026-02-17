@@ -209,7 +209,7 @@ public class Huub_De_PGA extends JFrame {
             stripper.setEndPage(page);
 
             String pageText = stripper.getText(doc);
-            List<String> parts = chunkText(pageText, 400);
+            List<String> parts = chunkText(pageText, 800);
 
             for (String part : parts)
                 chunks.add(new Chunk(part, embed(part), page));
@@ -279,13 +279,40 @@ public class Huub_De_PGA extends JFrame {
 
     private List<Chunk> search(String query) throws Exception {
 
+        // Maak embedding van de vraag
         List<Double> qVec = embed(query);
 
-        chunks.sort((a, b) ->
-                Double.compare(cosine(b.embedding, qVec), cosine(a.embedding, qVec)));
+        // Maak lijst van (chunk + similarity score)
+        List<Map.Entry<Chunk, Double>> scoredChunks = new ArrayList<>();
 
-        return chunks.subList(0, Math.min(4, chunks.size()));
+        for (Chunk c : chunks) {
+            double score = cosine(c.embedding, qVec);
+            scoredChunks.add(Map.entry(c, score));
+        }
+
+        // Sorteer op hoogste similarity eerst
+        scoredChunks.sort((a, b)
+                -> Double.compare(b.getValue(), a.getValue()));
+
+        // Alleen chunks die voldoende relevant zijn
+        double MIN_SIMILARITY = 0.3;
+
+        List<Chunk> results = new ArrayList<>();
+
+        for (Map.Entry<Chunk, Double> entry : scoredChunks) {
+            if (entry.getValue() < MIN_SIMILARITY) {
+                break;
+            }
+            results.add(entry.getKey());
+
+            if (results.size() >= 6) {
+                break;
+            }
+        }
+
+        return results;
     }
+
 
     // ==============================
     // OPENAI CHAT
@@ -305,6 +332,7 @@ public class Huub_De_PGA extends JFrame {
         }
 
         String contextString = contextText.toString();
+        
 
         // 👉 JOUW PROMPT EXACT
         String systemPrompt =
@@ -345,7 +373,7 @@ public class Huub_De_PGA extends JFrame {
 
 "Bron: [Vermeld hoofdstuktitel of sectienaam EN paginanummer uit de gids. Indien niet gevonden: N.v.t.] " +
 
-"Disclaimer: Deze informatie is mogelijk niet volledig of niet actuel. Deze informatie is niet juridisch bindend. Raadpleeg bij twijfel altijd HR. " +
+"Disclaimer: Deze informatie is mogelijk niet volledig of niet actueel. Deze informatie is niet juridisch bindend. Raadpleeg bij twijfel altijd HR. " +
 
 "<context> " +
 "{{hier de tekst uit de personeelsgids}} " +
@@ -355,22 +383,20 @@ public class Huub_De_PGA extends JFrame {
 "{{vraag}} " +
 "</vraag_gebruiker>";
 
-
+        String finalSystemPrompt = systemPrompt
+                .replace("{{hier de tekst uit de personeelsgids}}", contextString)
+                .replace("{{vraag}}", question);
 
         JSONArray messages = new JSONArray()
-                .put(new JSONObject().put("role", "system").put("content", systemPrompt));
-
-        for (JSONObject m : conversationHistory)
-            messages.put(m);
-
-        messages.put(new JSONObject()
-                .put("role", "user")
-                .put("content", "PERSONEELSGIDS:\n" + contextString + "\n\nVRAAG:\n" + question));
+                .put(new JSONObject()
+                        .put("role", "system")
+                        .put("content", finalSystemPrompt));
 
         JSONObject body = new JSONObject()
                 .put("model", "gpt-4o-mini")
                 .put("messages", messages)
-                .put("temperature", 0.1);
+                .put("temperature", 0)
+                .put("top_p", 0);
 
         Request request = new Request.Builder()
                 .url("https://api.openai.com/v1/chat/completions")
