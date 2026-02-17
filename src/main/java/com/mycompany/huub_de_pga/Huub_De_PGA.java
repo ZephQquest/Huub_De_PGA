@@ -62,6 +62,8 @@ public class Huub_De_PGA extends JFrame {
 
         backgroundImage = new ImageIcon("qquestlogoHoe gaa.png").getImage();
 
+        loadGuide();
+        
         setupChatPanel();
         setupInputPanel();
 
@@ -69,8 +71,6 @@ public class Huub_De_PGA extends JFrame {
 
         addBubble("Welkom! Ik ben Huub, jouw HR-assistent (domein: verlof).", false);
         addBubble("Gebruikte bron: " + PERSONEELSGIDS_VERSIE, false);
-
-        loadGuide();
     }
 
     // ==============================
@@ -431,6 +431,12 @@ public class Huub_De_PGA extends JFrame {
     // ==============================
 
     public static void main(String[] args) throws Exception {
-        new Huub_De_PGA();
+        SwingUtilities.invokeLater(() -> {
+            try {
+                new Huub_De_PGA();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 }
