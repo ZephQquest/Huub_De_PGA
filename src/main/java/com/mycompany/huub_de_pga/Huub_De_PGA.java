@@ -42,6 +42,7 @@ public class Huub_De_PGA extends JFrame {
         List<Double> embedding;
         int page;
 
+        // Slaat per tekstdeel de broninhoud, embedding-vector en paginaverwijzing op.
         Chunk(String text, List<Double> embedding, int page) {
             this.text = text;
             this.embedding = embedding;
@@ -53,6 +54,7 @@ public class Huub_De_PGA extends JFrame {
     // CONSTRUCTOR
     // ==============================
 
+    // Initialiseert het hoofdvenster, laadt de gidsdata en zet de chatinterface op.
     public Huub_De_PGA() throws Exception {
 
         setTitle("Huub – HR Chatbot (Verlof)");
@@ -77,9 +79,11 @@ public class Huub_De_PGA extends JFrame {
     // UI
     // ==============================
 
+    // Bouwt het scrollbare chatgedeelte op en tekent de achtergrondafbeelding.
     private void setupChatPanel() {
 
         chatPanel = new JPanel() {
+            // Tekent de achtergrond telkens wanneer het paneel opnieuw wordt gerenderd.
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 g.drawImage(backgroundImage, 0, 0, null);
@@ -99,6 +103,7 @@ public class Huub_De_PGA extends JFrame {
         add(scrollPane, BorderLayout.CENTER);
     }
 
+    // Bouwt het invoerveld met verzendknop en koppelt beide aan dezelfde verzendactie.
     private void setupInputPanel() {
 
         inputField = new JTextField();
@@ -123,6 +128,7 @@ public class Huub_De_PGA extends JFrame {
     // CHAT
     // ==============================
 
+    // Leest de gebruikersvraag, toont die in de UI en haalt een antwoord op.
     private void send() {
 
         String question = inputField.getText().trim();
@@ -159,6 +165,7 @@ public class Huub_De_PGA extends JFrame {
         }).start();
     }
 
+    // Voegt een chatballon toe voor gebruiker of assistent en scrolt naar beneden.
     private void addBubble(String text, boolean user) {
 
         JPanel row = new JPanel(new BorderLayout());
@@ -198,6 +205,7 @@ public class Huub_De_PGA extends JFrame {
     // PDF + EMBEDDINGS
     // ==============================
 
+    // Leest de PDF per pagina uit, splitst tekst in chunks en maakt embeddings voor zoekwerk.
     private void loadGuide() throws Exception {
 
         PDDocument doc = Loader.loadPDF(new File("personeelsgids.pdf"));
@@ -221,6 +229,7 @@ public class Huub_De_PGA extends JFrame {
             throw new RuntimeException("Geen tekst uit personeelsgids geladen.");
     }
 
+    // Splitst lange tekst op in woordblokken van vaste grootte voor verwerking.
     private static List<String> chunkText(String text, int size) {
 
         List<String> result = new ArrayList<>();
@@ -234,6 +243,7 @@ public class Huub_De_PGA extends JFrame {
         return result;
     }
 
+    // Roept de embedding-API aan en retourneert de numerieke vector van de invoertekst.
     private static List<Double> embed(String input) throws Exception {
 
         JSONObject body = new JSONObject()
@@ -267,6 +277,7 @@ public class Huub_De_PGA extends JFrame {
         }
     }
 
+    // Berekent de cosine similarity tussen twee vectors om inhoudelijke overeenkomst te meten.
     private double cosine(List<Double> a, List<Double> b) {
         double dot = 0, na = 0, nb = 0;
         for (int i = 0; i < a.size(); i++) {
@@ -277,6 +288,7 @@ public class Huub_De_PGA extends JFrame {
         return dot / (Math.sqrt(na) * Math.sqrt(nb));
     }
 
+    // Zoekt de meest relevante chunks voor de vraag op basis van embedding-similarity.
     private List<Chunk> search(String query) throws Exception {
 
         // Maak embedding van de vraag
@@ -318,6 +330,7 @@ public class Huub_De_PGA extends JFrame {
     // OPENAI CHAT
     // ==============================
 
+    // Stelt context en prompt samen, vraagt de chat-API om antwoord en bewaart conversatiehistorie.
     private String ask(String question) throws Exception {
 
         List<Chunk> topChunks = search(question);
@@ -430,6 +443,7 @@ public class Huub_De_PGA extends JFrame {
 
     // ==============================
 
+    // Start de Swing-applicatie en opent het chatbotvenster op de event-dispatch-thread.
     public static void main(String[] args) throws Exception {
         SwingUtilities.invokeLater(() -> {
             try {
