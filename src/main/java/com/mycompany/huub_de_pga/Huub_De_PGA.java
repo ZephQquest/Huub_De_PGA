@@ -91,7 +91,8 @@ public class Huub_De_PGA extends JFrame {
         };
 
         chatPanel.setLayout(new BoxLayout(chatPanel, BoxLayout.Y_AXIS));
-        chatPanel.setOpaque(false);
+        chatPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
+
 
         scrollPane = new JScrollPane(chatPanel);
         scrollPane.setBorder(null);
@@ -171,12 +172,49 @@ public class Huub_De_PGA extends JFrame {
         JPanel row = new JPanel(new BorderLayout());
         row.setOpaque(false);
 
-        JTextArea bubble = new JTextArea(text);
-        bubble.setLineWrap(true);
-        bubble.setWrapStyleWord(true);
-        bubble.setEditable(false);
-        bubble.setFont(new Font("Segoe UI", Font.PLAIN, 15));
-        bubble.setBorder(new EmptyBorder(14, 20, 14, 20));
+        // ===== Tekst splitsen in antwoord en disclaimer =====
+String antwoord = text;
+String disclaimer = "";
+
+if (!user && text.contains("Disclaimer:")) {
+    int index = text.indexOf("Disclaimer:");
+    antwoord = text.substring(0, index).trim();
+    disclaimer = text.substring(index).trim();
+}
+
+// ===== HTML layout maken =====
+String htmlText;
+
+if (!user && !disclaimer.isEmpty()) {
+    htmlText =
+        "<html>" +
+        "<div style='font-family:Segoe UI; font-size:13px; width:650px'>" +
+        antwoord.replace("\n", "<br>") +
+        "</div>" +
+        "<div style='margin-top:20px; font-size:10px; color:gray; text-align:left;'>" +
+        disclaimer.replace("\n", "<br>") +
+        "</div>" +
+        "</html>";
+} else {
+    htmlText =
+        "<html>" +
+        "<div style='font-family:Segoe UI; font-size:13px; width: 650px'>" +
+        text.replace("\n", "<br>") +
+        "</div>" +
+        "</html>";
+}
+JTextPane bubble = new JTextPane();
+bubble.setContentType("text/html");
+bubble.setText(htmlText);
+bubble.setEditable(false);
+bubble.setBorder(new EmptyBorder(14, 20, 14, 20));
+
+// ⭐ BELANGRIJK — zorgt dat tekst wrapt binnen venster
+bubble.setMaximumSize(new Dimension(700, Integer.MAX_VALUE));
+bubble.setPreferredSize(null);
+bubble.setSize(new Dimension(700, Short.MAX_VALUE));
+
+
 
         if (user) {
             bubble.setBackground(new Color(0, 90, 160));
