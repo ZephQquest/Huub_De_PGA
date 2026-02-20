@@ -15,41 +15,16 @@ import java.util.List;
 
 public class Huub_De_PGA extends JFrame {
 
- enum SpecialistAgent {
-        VERLOF(
-                "Verlof-agent",
-                List.of("verlof", "vakantie", "vakantiedagen", "ouderschapsverlof", "calamiteitenverlof", "zwangerschap"),
-                "Je bent de verlof-specialist. Beantwoord alleen vragen over verlofregelingen, aanvragen, saldo en voorwaarden."
-        ),
-        SALARIS(
-                "Salaris-agent",
-                List.of("salaris", "loon", "uitbetaling", "bonus", "toeslag", "declaratie"),
-                "Je bent de salaris-specialist. Beantwoord alleen vragen over salaris, looncomponenten, toeslagen en uitbetaling."
-        ),
-        LEASEAUTO(
-                "Leaseauto-agent",
-                List.of("leaseauto", "auto", "bijtelling", "kilometer", "mobiliteit"),
-                "Je bent de leaseauto-specialist. Beantwoord alleen vragen over leaseauto's, mobiliteitsafspraken en bijtelling."
-        ),
-        UITDIENST(
-                "Uitdienst-agent",
-                List.of("ontslag", "uitdienst", "opzegtermijn", "beëindiging", "transitievergoeding"),
-                "Je bent de uitdienst-specialist. Beantwoord alleen vragen over uitdiensttreding en beëindiging van het dienstverband."
-        ),
-        ALGEMEEN(
-                "Algemene HR-agent",
-                List.of(),
-                "Je bent een algemene HR-agent. Beantwoord de vraag alleen als deze in de context van de personeelsgids staat."
-        );
+    static class TopicAgent {
+        String label;
+        String roleInstruction;
+        String routingDescription;
+        List<Double> routingEmbedding;
 
-        final String label;
-        final List<String> keywords;
-        final String roleInstruction;
-
-        SpecialistAgent(String label, List<String> keywords, String roleInstruction) {
+        TopicAgent(String label, String roleInstruction, String routingDescription) {
             this.label = label;
-            this.keywords = keywords;
             this.roleInstruction = roleInstruction;
+            this.routingDescription = routingDescription;
         }
     }
    
@@ -70,7 +45,8 @@ public class Huub_De_PGA extends JFrame {
 
     private final List<JSONObject> conversationHistory = new ArrayList<>();
     private final List<Chunk> chunks = new ArrayList<>();
-
+    private final List<TopicAgent> topicAgents = new ArrayList<>();
+    
     // ==============================
     // DATASTRUCTUUR
     // ==============================
@@ -103,6 +79,7 @@ public class Huub_De_PGA extends JFrame {
         backgroundImage = new ImageIcon("qquestlogoHoe gaa.png").getImage();
 
         loadGuide();
+        initializeTopicAgents();
         
         setupChatPanel();
         setupInputPanel();
@@ -401,20 +378,68 @@ bubble.setSize(new Dimension(700, Short.MAX_VALUE));
         return results;
     }
 
-        // Selecteert de best passende specialist-agent op basis van kernwoorden in de vraag.
-    private SpecialistAgent selectAgent(String question) {
-        String lowerQuestion = question.toLowerCase(Locale.ROOT);
+            // Initialiseert onderwerp-agents en bouwt semantische embeddings voor routering zonder trefwoorden.
+    private void initializeTopicAgents() throws Exception {
 
-        for (SpecialistAgent agent : SpecialistAgent.values()) {
-            for (String keyword : agent.keywords) {
-                if (lowerQuestion.contains(keyword)) {
-                    return agent;
-                }
+        topicAgents.clear();
+
+        topicAgents.add(new TopicAgent(
+                "Verlof-agent",
+                "Je bent de verlof-specialist. Beantwoord alleen vragen over verlofregelingen, aanvragen, saldo, voorwaarden etc.",
+                "Onderwerp: verlof, vakantie, afwezigheid, bijzonder verlof, ouderschapsverlof, ziekmelding en urenregistratie."          
+        ));
+
+        topicAgents.add(new TopicAgent(
+                "Salaris-agent",
+                "Je bent de salaris-specialist. Beantwoord alleen vragen over salaris, looncomponenten, toeslagen en uitbetaling.",
+                "Onderwerp: salaris, loonstrook, uitbetaling, bonus, declaraties, loontabellen, vergoedingen, inhoudingen en fiscale componenten."
+        ));
+
+        topicAgents.add(new TopicAgent(
+                "Mobiliteit-agent",
+                "Je bent de mobiliteit-specialist. Beantwoord alleen vragen over leaseauto's, mobiliteitsafspraken en reisvergoeding.",
+                "Onderwerp: leaseauto, mobiliteit, kilometervergoeding, tankpas, autoregeling, bijtelling en vervoer."
+        ));
+
+        topicAgents.add(new TopicAgent(
+                "Uitdienst-agent",
+                "Je bent de uitdienst-specialist. Beantwoord alleen vragen over beëindiging van het dienstverband.",
+                "Onderwerp: ontslag, uitdiensttreding, opzegtermijn, eindafrekening, inleveren middelen en exitproces."
+        ));
+
+        topicAgents.add(new TopicAgent(
+                "Algemene HR-agent",
+                "Je bent een algemene HR-agent. Beantwoord de vraag alleen als deze in de context van de personeelsgids staat.",
+                "Onderwerp: algemene HR-vragen over beleid, procedures, gedragscode, ontwikkeling en arbeidsvoorwaarden."
+        ));
+
+        for (TopicAgent agent : topicAgents) {
+            agent.routingEmbedding = embed(agent.routingDescription);
+        }
+    }
+
+    // Selecteert de best passende onderwerp-agent op basis van semantische embedding-similarity.
+    private TopicAgent selectTopicAgent(String question) throws Exception {
+
+        List<Double> questionEmbedding = embed(question);
+        TopicAgent bestAgent = topicAgents.get(topicAgents.size() - 1);
+        double bestScore = -1.0;
+
+        for (TopicAgent agent : topicAgents) {
+            if (agent.routingEmbedding == null || agent.routingEmbedding.isEmpty()) {
+                continue;
+            }
+
+            double score = cosine(questionEmbedding, agent.routingEmbedding);
+            if (score > bestScore) {
+                bestScore = score;
+                bestAgent = agent;
             }
         }
 
-        return SpecialistAgent.ALGEMEEN;
+        return bestAgent;
     }
+
 
 
     // ==============================
@@ -424,7 +449,7 @@ bubble.setSize(new Dimension(700, Short.MAX_VALUE));
     // Stelt context en prompt samen, vraagt de chat-API om antwoord en bewaart conversatiehistorie.
     private String ask(String question) throws Exception {
 
-         SpecialistAgent selectedAgent = selectAgent(question);
+        TopicAgent selectedAgent = selectTopicAgent(question);
         List<Chunk> topChunks = search(question);
 
         StringBuilder contextText = new StringBuilder();
@@ -443,10 +468,11 @@ bubble.setSize(new Dimension(700, Short.MAX_VALUE));
         String systemPrompt =
 
 "# ROLE " +
-"Je bent Huub, een HR-assistent die werkt met gespecialiseerde agents per onderwerp uit de personeelsgids. " +
+"Je bent HU-B, een HR-assistent die werkt met gespecialiseerde agents per onderwerp uit de personeelsgids. " +
 "Geselecteerde agent: {{agent_label}}. " +
+"Geselecteerd onderwerp: {{agent_subject}}. " +
 "Agent-instructie: {{agent_instruction}} " +
-
+                
 "# DOEL " +
 "Verstrek accurate, feitelijke informatie over het gevraagde HR-onderwerp op basis van de verstrekte PERSONEELSGIDS. " +
 
@@ -454,8 +480,8 @@ bubble.setSize(new Dimension(700, Short.MAX_VALUE));
 "1. Source Grounding: Gebruik ALLEEN de informatie tussen de <context> tags. " +
 "Als het antwoord daar niet staat, zeg je: \"Ik kan deze informatie niet terugvinden in de personeelsgids. Neem contact op met HR voor verdere ondersteuning.\" " +
 
-"2. Scope: Behandel uitsluitend het onderwerp van de geselecteerde agent. " +
-"Bij gemengde vragen behandel je alleen het deel dat past bij de geselecteerde agent en benoem je kort dat overige delen buiten scope vallen. " +
+"2. Scope: Behandel uitsluitend vragen die binnen het geselecteerde onderwerp vallen. " +
+"Bij gemengde vragen behandel je alleen het deel dat binnen het onderwerp past en benoem je kort dat er voor andere onderwerpen een nieuwe vraag gesteld moet worden. " +
 
 "3. Geen Hallucinaties: Verzin nooit paginanummers, citaten, data of percentages die niet letterlijk in de tekst staan. " +
 
@@ -464,21 +490,23 @@ bubble.setSize(new Dimension(700, Short.MAX_VALUE));
 "- het juiste paginanummer uit de context vermelden, " +
 "- geen pagina vermelden als deze niet expliciet in de context staat. " +
 
-"5. Toon: Professioneel, zakelijk, behulpzaam maar kortaf waar nodig om feitelijkheid te bewaren. " +
+"5. Toon: Professioneel en behulpzaam, maar kortaf waar nodig om feitelijkheid te bewaren. " +
 
-"# STAPSGEWIJZE VERWERKING (Chain of Thought) " +
-"Voordat je antwoordt, doorloop je intern deze stappen: " +
-"- Stap 1: Analyseer of de vraag (geheel of gedeeltelijk) bij de geselecteerde agent hoort. " +
-"- Stap 2: Zoek in de <context> naar de specifieke secties die over dit onderwerp gaan. " +
-"- Stap 3: Controleer of er tegenstrijdigheden zijn in de tekst. " +
-"- Stap 4: Formuleer het antwoord en identificeer de bron inclusief paginanummer en relevante passage. " +
+//"# STAPSGEWIJZE VERWERKING (Chain of Thought) " +
+//"Voordat je antwoordt, doorloop je intern deze stappen: " +
+//"- Stap 1: Analyseer of de vraag (geheel of gedeeltelijk) bij het geselecteerde onderwerp hoort. " +
+//"- Stap 2: Zoek in de <context> naar de specifieke secties die over dit onderwerp gaan. " +
+//"- Stap 3: Controleer of er tegenstrijdigheden zijn in de tekst. " +
+//"- Stap 4: Formuleer het antwoord en identificeer de bron inclusief paginanummer en relevante passage. " +
 
 "# OUTPUT FORMAT " +
 "Hanteer strikt de volgende structuur: " +
 
-"Antwoord: [Geef hier het feitelijke antwoord. Bij gemengde vragen: beantwoord alleen het verlof-deel.] " +
+"Antwoord: [Geef hier het feitelijke antwoord.] " +
 
 "Bron: [Vermeld hoofdstuktitel of sectienaam EN paginanummer uit de gids. Indien niet gevonden: N.v.t.] " +
+                
+"Agent: [Vermeld hier de geselecteerde agent. Indien niet gevonden: N.v.t.]" +
 
 "Disclaimer: Deze informatie is mogelijk niet volledig of niet actueel. Deze informatie is niet juridisch bindend. Raadpleeg bij twijfel altijd HR. " +
 
@@ -493,6 +521,7 @@ bubble.setSize(new Dimension(700, Short.MAX_VALUE));
         String finalSystemPrompt = systemPrompt
                 .replace("{{agent_label}}", selectedAgent.label)
                 .replace("{{agent_instruction}}", selectedAgent.roleInstruction)
+                .replace("{{agent_subject}}", selectedAgent.routingDescription)             
                 .replace("{{hier de tekst uit de personeelsgids}}", contextString)
                 .replace("{{vraag}}", question);
 
@@ -504,7 +533,7 @@ bubble.setSize(new Dimension(700, Short.MAX_VALUE));
         JSONObject body = new JSONObject()
                 .put("model", "gpt-4o-mini")
                 .put("messages", messages)
-                .put("temperature", 0)
+                .put("temperature", 0.1)
                 .put("top_p", 0);
 
         Request request = new Request.Builder()
