@@ -36,7 +36,8 @@ public class Huub_De_PGA extends JFrame {
     private static final OkHttpClient CLIENT = new OkHttpClient();
 
     private static final String PERSONEELSGIDS_VERSIE =
-            "Personeelsgids BU Talentclass versie 2024.1";
+            "Personeelsgids BU Talentclass versie 2024.1"
+            + "Disclaimer: De informatie die HU-B geeft is mogelijk niet volledig of niet actueel. De informatie die gegeven is, is niet juridisch bindend. Raadpleeg bij twijfel altijd HR.";
 
     private JPanel chatPanel;
     private JScrollPane scrollPane;
@@ -509,7 +510,6 @@ bubble.setSize(new Dimension(700, Short.MAX_VALUE));
                 
 "Agent: [Vermeld hier de geselecteerde agent. Indien niet gevonden: N.v.t.]" +
 
-"Disclaimer: Deze informatie is mogelijk niet volledig of niet actueel. Deze informatie is niet juridisch bindend. Raadpleeg bij twijfel altijd HR. " +
 
 "<context> " +
 "{{hier de tekst uit de personeelsgids}} " +
