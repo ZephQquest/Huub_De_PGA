@@ -15,6 +15,44 @@ import java.util.List;
 
 public class Huub_De_PGA extends JFrame {
 
+ enum SpecialistAgent {
+        VERLOF(
+                "Verlof-agent",
+                List.of("verlof", "vakantie", "vakantiedagen", "ouderschapsverlof", "calamiteitenverlof", "zwangerschap"),
+                "Je bent de verlof-specialist. Beantwoord alleen vragen over verlofregelingen, aanvragen, saldo en voorwaarden."
+        ),
+        SALARIS(
+                "Salaris-agent",
+                List.of("salaris", "loon", "uitbetaling", "bonus", "toeslag", "declaratie"),
+                "Je bent de salaris-specialist. Beantwoord alleen vragen over salaris, looncomponenten, toeslagen en uitbetaling."
+        ),
+        LEASEAUTO(
+                "Leaseauto-agent",
+                List.of("leaseauto", "auto", "bijtelling", "kilometer", "mobiliteit"),
+                "Je bent de leaseauto-specialist. Beantwoord alleen vragen over leaseauto's, mobiliteitsafspraken en bijtelling."
+        ),
+        UITDIENST(
+                "Uitdienst-agent",
+                List.of("ontslag", "uitdienst", "opzegtermijn", "beëindiging", "transitievergoeding"),
+                "Je bent de uitdienst-specialist. Beantwoord alleen vragen over uitdiensttreding en beëindiging van het dienstverband."
+        ),
+        ALGEMEEN(
+                "Algemene HR-agent",
+                List.of(),
+                "Je bent een algemene HR-agent. Beantwoord de vraag alleen als deze in de context van de personeelsgids staat."
+        );
+
+        final String label;
+        final List<String> keywords;
+        final String roleInstruction;
+
+        SpecialistAgent(String label, List<String> keywords, String roleInstruction) {
+            this.label = label;
+            this.keywords = keywords;
+            this.roleInstruction = roleInstruction;
+        }
+    }
+   
     // ==============================
     // CONFIGURATIE
     // ==============================
@@ -57,7 +95,7 @@ public class Huub_De_PGA extends JFrame {
     // Initialiseert het hoofdvenster, laadt de gidsdata en zet de chatinterface op.
     public Huub_De_PGA() throws Exception {
 
-        setTitle("Huub – HR Chatbot (Verlof)");
+        setTitle("HU-B – HR Chatbot");
         setSize(1100, 700);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
@@ -71,7 +109,7 @@ public class Huub_De_PGA extends JFrame {
 
         setVisible(true);
 
-        addBubble("Welkom! Ik ben Huub, jouw HR-assistent (domein: verlof).", false);
+        addBubble("Welkom! Ik ben HU-B, jouw HR-assistent.", false);
         addBubble("Gebruikte bron: " + PERSONEELSGIDS_VERSIE, false);
     }
 
@@ -363,6 +401,21 @@ bubble.setSize(new Dimension(700, Short.MAX_VALUE));
         return results;
     }
 
+        // Selecteert de best passende specialist-agent op basis van kernwoorden in de vraag.
+    private SpecialistAgent selectAgent(String question) {
+        String lowerQuestion = question.toLowerCase(Locale.ROOT);
+
+        for (SpecialistAgent agent : SpecialistAgent.values()) {
+            for (String keyword : agent.keywords) {
+                if (lowerQuestion.contains(keyword)) {
+                    return agent;
+                }
+            }
+        }
+
+        return SpecialistAgent.ALGEMEEN;
+    }
+
 
     // ==============================
     // OPENAI CHAT
@@ -371,6 +424,7 @@ bubble.setSize(new Dimension(700, Short.MAX_VALUE));
     // Stelt context en prompt samen, vraagt de chat-API om antwoord en bewaart conversatiehistorie.
     private String ask(String question) throws Exception {
 
+         SpecialistAgent selectedAgent = selectAgent(question);
         List<Chunk> topChunks = search(question);
 
         StringBuilder contextText = new StringBuilder();
@@ -389,30 +443,32 @@ bubble.setSize(new Dimension(700, Short.MAX_VALUE));
         String systemPrompt =
 
 "# ROLE " +
-"Je bent Huub, een gespecialiseerde HR-assistent die uitsluitend vragen beantwoordt over verlofregelingen op basis van de verstrekte PERSONEELSGIDS. " +
+"Je bent Huub, een HR-assistent die werkt met gespecialiseerde agents per onderwerp uit de personeelsgids. " +
+"Geselecteerde agent: {{agent_label}}. " +
+"Agent-instructie: {{agent_instruction}} " +
 
 "# DOEL " +
-"Verstrek accurate, feitelijke informatie over verlof (soorten, aanvragen, saldo, etc.) aan medewerkers. " +
+"Verstrek accurate, feitelijke informatie over het gevraagde HR-onderwerp op basis van de verstrekte PERSONEELSGIDS. " +
 
 "# CONSTRAINTS (STRIKTE REGELS) " +
 "1. Source Grounding: Gebruik ALLEEN de informatie tussen de <context> tags. " +
 "Als het antwoord daar niet staat, zeg je: \"Ik kan deze informatie niet terugvinden in de personeelsgids. Neem contact op met HR voor verdere ondersteuning.\" " +
 
-"2. Scope: Behandel alleen verlof-gerelateerde zaken. Voor vragen over salaris, leaseauto's of ontslag antwoord je: " +
-"\"Mijn expertise is beperkt tot verlofregelingen. Voor deze vraag verwijs ik u graag door naar de relevante afdeling.\" " +
+"2. Scope: Behandel uitsluitend het onderwerp van de geselecteerde agent. " +
+"Bij gemengde vragen behandel je alleen het deel dat past bij de geselecteerde agent en benoem je kort dat overige delen buiten scope vallen. " +
 
 "3. Geen Hallucinaties: Verzin nooit paginanummers, citaten, data of percentages die niet letterlijk in de tekst staan. " +
 
 "4. Bronvermelding (verplicht): " +
 "Als informatie uit de PERSONEELSGIDS wordt gebruikt, moet je: " +
 "- het juiste paginanummer uit de context vermelden, " +
-"- geen pagina vermelden als deze niet expliciet in de context staan. " +
+"- geen pagina vermelden als deze niet expliciet in de context staat. " +
 
 "5. Toon: Professioneel, zakelijk, behulpzaam maar kortaf waar nodig om feitelijkheid te bewaren. " +
 
 "# STAPSGEWIJZE VERWERKING (Chain of Thought) " +
 "Voordat je antwoordt, doorloop je intern deze stappen: " +
-"- Stap 1: Analyseer of de vraag (geheel of gedeeltelijk) over verlof gaat. " +
+"- Stap 1: Analyseer of de vraag (geheel of gedeeltelijk) bij de geselecteerde agent hoort. " +
 "- Stap 2: Zoek in de <context> naar de specifieke secties die over dit onderwerp gaan. " +
 "- Stap 3: Controleer of er tegenstrijdigheden zijn in de tekst. " +
 "- Stap 4: Formuleer het antwoord en identificeer de bron inclusief paginanummer en relevante passage. " +
@@ -435,6 +491,8 @@ bubble.setSize(new Dimension(700, Short.MAX_VALUE));
 "</vraag_gebruiker>";
 
         String finalSystemPrompt = systemPrompt
+                .replace("{{agent_label}}", selectedAgent.label)
+                .replace("{{agent_instruction}}", selectedAgent.roleInstruction)
                 .replace("{{hier de tekst uit de personeelsgids}}", contextString)
                 .replace("{{vraag}}", question);
 
