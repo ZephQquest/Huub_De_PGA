@@ -478,7 +478,8 @@ bubble.setSize(new Dimension(700, Short.MAX_VALUE));
 
 "# CONSTRAINTS (STRIKTE REGELS) " +
 "1. Source Grounding: Gebruik ALLEEN de informatie tussen de <context> tags. " +
-"Als het antwoord daar niet staat, zeg je: \"Ik kan deze informatie niet terugvinden in de personeelsgids. Neem contact op met HR voor verdere ondersteuning.\" " +
+"Als het antwoord daar niet staat geef je aan wat je niet kan vinden." +
+            //    + "\"Ik kan deze informatie niet terugvinden in de personeelsgids. Neem contact op met HR voor verdere ondersteuning.\" " +
 
 "2. Scope: Behandel uitsluitend vragen die binnen het geselecteerde onderwerp vallen. " +
 "Bij gemengde vragen behandel je alleen het deel dat binnen het onderwerp past en benoem je kort dat er voor andere onderwerpen een nieuwe vraag gesteld moet worden. " +
@@ -533,7 +534,7 @@ bubble.setSize(new Dimension(700, Short.MAX_VALUE));
         JSONObject body = new JSONObject()
                 .put("model", "gpt-4o-mini")
                 .put("messages", messages)
-                .put("temperature", 0.1)
+                .put("temperature", 0.3)
                 .put("top_p", 0);
 
         Request request = new Request.Builder()
