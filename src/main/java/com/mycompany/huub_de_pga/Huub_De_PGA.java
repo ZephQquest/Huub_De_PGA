@@ -42,7 +42,9 @@ public class Huub_De_PGA extends JFrame {
     private JPanel chatPanel;
     private JScrollPane scrollPane;
     private JTextField inputField;
+    private JButton sendButton;
     private Image backgroundImage;
+        private volatile boolean knowledgeReady = false;
 
     private final List<JSONObject> conversationHistory = new ArrayList<>();
     private final List<Chunk> chunks = new ArrayList<>();
@@ -79,8 +81,8 @@ public class Huub_De_PGA extends JFrame {
 
         backgroundImage = new ImageIcon("qquestlogoHoe gaa.png").getImage();
 
-        loadGuide();
-        initializeTopicAgents();
+        
+//        initializeTopicAgents();
         
         setupChatPanel();
         setupInputPanel();
@@ -89,6 +91,9 @@ public class Huub_De_PGA extends JFrame {
 
         addBubble("Welkom! Ik ben HU-B, jouw HR-assistent.", false);
         addBubble("Gebruikte bron: " + PERSONEELSGIDS_VERSIE, false);
+        addBubble("Ik laad nu de personeelsgids. Een moment geduld...", false);
+
+        startKnowledgeLoading();
     }
 
     // ==============================
@@ -124,7 +129,8 @@ public class Huub_De_PGA extends JFrame {
     private void setupInputPanel() {
 
         inputField = new JTextField();
-        JButton sendButton = new JButton("Verstuur");
+        sendButton = new JButton("Verstuur");
+        sendButton.setEnabled(false);
 
         sendButton.setFocusPainted(false);
         sendButton.setBackground(new Color(0, 90, 160));
@@ -150,6 +156,11 @@ public class Huub_De_PGA extends JFrame {
 
         String question = inputField.getText().trim();
         if (question.isEmpty()) return;
+
+        if (!knowledgeReady) {
+            addBubble("De gids is nog niet klaar met laden. Probeer het zo opnieuw.", false);
+            return;
+        }
 
         addBubble(question, true);
         inputField.setText("");
@@ -178,6 +189,32 @@ public class Huub_De_PGA extends JFrame {
 
                 SwingUtilities.invokeLater(() ->
                         addBubble("Er ging iets mis: " + msg, false));
+            }
+        }).start();
+    }
+   private void startKnowledgeLoading() {
+        new Thread(() -> {
+            try {
+                if (API_KEY == null || API_KEY.isBlank()) {
+                    throw new IllegalStateException("OPENAI_API_KEY ontbreekt. Voeg deze omgevingsvariabele toe.");
+                }
+
+                loadGuide();
+                initializeTopicAgents();
+                knowledgeReady = true;
+
+                SwingUtilities.invokeLater(() -> {
+                    sendButton.setEnabled(true);
+                    addBubble("De personeelsgids is geladen. Je kunt nu vragen stellen.", false);
+                });
+
+            } catch (Exception ex) {
+                ex.printStackTrace();
+
+                SwingUtilities.invokeLater(() -> {
+                    addBubble("Opstartfout: " + ex.getMessage(), false);
+                    addBubble("Tip: controleer OPENAI_API_KEY en je internetverbinding.", false);
+                });
             }
         }).start();
     }
@@ -534,7 +571,7 @@ bubble.setSize(new Dimension(700, Short.MAX_VALUE));
         JSONObject body = new JSONObject()
                 .put("model", "gpt-4o-mini")
                 .put("messages", messages)
-                .put("temperature", 0.3)
+                .put("temperature", 0.2)
                 .put("top_p", 0);
 
         Request request = new Request.Builder()
