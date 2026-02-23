@@ -382,14 +382,16 @@ bubble.setSize(new Dimension(700, Short.MAX_VALUE));
     // Zoekt de meest relevante chunks voor de vraag op basis van embedding-similarity.
     private List<Chunk> search(String query) throws Exception {
 
-        // Maak embedding van de vraag
+        // Hybride retrieval: combineer semantische embedding-score met lexicale overlap-score
         List<Double> qVec = embed(query);
 
         // Maak lijst van (chunk + similarity score)
         List<Map.Entry<Chunk, Double>> scoredChunks = new ArrayList<>();
 
         for (Chunk c : chunks) {
-            double score = cosine(c.embedding, qVec);
+            double semanticScore = cosine(c.embedding, qVec);
+            double lexicalScore = lexicalSimilarity(query, c.text);
+            double score = (semanticScore * 0.80) + (lexicalScore * 0.20);
             scoredChunks.add(Map.entry(c, score));
         }
 
@@ -453,6 +455,48 @@ bubble.setSize(new Dimension(700, Short.MAX_VALUE));
         }
 
         return results;
+    }
+    
+    private double lexicalSimilarity(String query, String chunkText) {
+        if (query == null || chunkText == null || query.isBlank() || chunkText.isBlank()) {
+            return 0.0;
+        }
+
+        Set<String> queryTokens = tokenize(query);
+        Set<String> chunkTokens = tokenize(chunkText);
+
+        if (queryTokens.isEmpty() || chunkTokens.isEmpty()) {
+            return 0.0;
+        }
+
+        int overlap = 0;
+        for (String token : queryTokens) {
+            if (chunkTokens.contains(token)) {
+                overlap++;
+            }
+        }
+
+        return (double) overlap / (double) queryTokens.size();
+    }
+
+    private Set<String> tokenize(String text) {
+        Set<String> tokens = new HashSet<>();
+
+        String normalized = text.toLowerCase(Locale.ROOT)
+                .replaceAll("[^\\p{L}\\p{Nd}]+", " ")
+                .trim();
+
+        if (normalized.isEmpty()) {
+            return tokens;
+        }
+
+        for (String token : normalized.split("\\s+")) {
+            if (token.length() >= 3) {
+                tokens.add(token);
+            }
+        }
+
+        return tokens;
     }
  private boolean isTalentclassQuestion(String query) {
         String normalized = query.toLowerCase(Locale.ROOT);
@@ -616,8 +660,6 @@ bubble.setSize(new Dimension(700, Short.MAX_VALUE));
 
         return bestAgent;
     }
-
-
 
     // ==============================
     // OPENAI CHAT
