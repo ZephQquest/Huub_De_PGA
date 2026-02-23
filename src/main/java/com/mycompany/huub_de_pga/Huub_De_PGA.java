@@ -397,18 +397,38 @@ bubble.setSize(new Dimension(700, Short.MAX_VALUE));
         scoredChunks.sort((a, b)
                 -> Double.compare(b.getValue(), a.getValue()));
 
-        // Alleen chunks die voldoende relevant zijn
+         // Houd relevante context als primaire bron, maar vul aan als er te weinig matches zijn.
         double MIN_SIMILARITY = 0.3;
+        int MAX_RESULTS = 8;
 
         List<Chunk> results = new ArrayList<>();
+        Set<Chunk> added = new HashSet<>();
 
+        // 1) Eerst alleen voldoende relevante chunks.
         for (Map.Entry<Chunk, Double> entry : scoredChunks) {
             if (entry.getValue() < MIN_SIMILARITY) {
                 break;
             }
-            results.add(entry.getKey());
+           
 
-            if (results.size() >= 6) {
+           Chunk candidate = entry.getKey();
+            if (candidate.text != null && !candidate.text.isBlank() && added.add(candidate)) {
+                results.add(candidate);
+            }
+
+            if (results.size() >= MAX_RESULTS) {
+                return results;
+            }
+        }
+
+        // 2) Fallback: als er te weinig relevante chunks zijn, vul aan met best scorende overigen.
+        for (Map.Entry<Chunk, Double> entry : scoredChunks) {
+            Chunk candidate = entry.getKey();
+            if (candidate.text != null && !candidate.text.isBlank() && added.add(candidate)) {
+                results.add(candidate);
+            }
+
+            if (results.size() >= MAX_RESULTS) {
                 break;
             }
         }
@@ -435,7 +455,10 @@ bubble.setSize(new Dimension(700, Short.MAX_VALUE));
 
         topicAgents.add(new TopicAgent(
                 "Mobiliteit-agent",
-                "Je bent de mobiliteit-specialist. Beantwoord alleen vragen over leaseauto's, mobiliteitsafspraken en reisvergoeding.",
+               "Je bent de mobiliteit-specialist. Beantwoord alleen vragen over leaseauto's, mobiliteitsafspraken en reisvergoeding. " +
+                "Als een vraag over kilometers met een leaseauto gaat, maak dan altijd expliciet onderscheid tussen privegebruik en zakelijk/werkgebruik. " +
+                "Als een vraag een vergelijking maakt (bijvoorbeeld privegebruik versus geen privegebruik), beantwoord dan expliciet beide situaties: " +
+                "wat er wel staat in de gids en wat er niet expliciet staat.",
                 "Onderwerp: leaseauto, mobiliteit, kilometervergoeding, tankpas, autoregeling, bijtelling en vervoer."
         ));
 
