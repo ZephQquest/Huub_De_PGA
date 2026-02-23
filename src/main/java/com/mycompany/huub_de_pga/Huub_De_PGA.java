@@ -446,9 +446,15 @@ bubble.setSize(new Dimension(700, Short.MAX_VALUE));
         ));
 
         topicAgents.add(new TopicAgent(
+                "Verzuim-agent",
+                "Je bent de verzuim-specialist. Beantwoord alleen vragen over verzuim, arbo, gezondheidsbeleid en preventie.",
+                "Onderwerp: Verzuim, ziekte, gezondheidsbeleid, arbo, preventie en re-integratie"
+        ));
+        
+        topicAgents.add(new TopicAgent(
                 "Algemene HR-agent",
                 "Je bent een algemene HR-agent. Beantwoord de vraag alleen als deze in de context van de personeelsgids staat.",
-                "Onderwerp: algemene HR-vragen over beleid, procedures, gedragscode, ontwikkeling en arbeidsvoorwaarden."
+                "Onderwerp: algemene HR-vragen over beleid, klachtenprocedures, gedragscode, ontwikkeling en arbeidsvoorwaarden."
         ));
 
         for (TopicAgent agent : topicAgents) {
