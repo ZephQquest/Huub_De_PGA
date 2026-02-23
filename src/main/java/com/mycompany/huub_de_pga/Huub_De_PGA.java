@@ -429,7 +429,7 @@ bubble.setSize(new Dimension(700, Short.MAX_VALUE));
 
         topicAgents.add(new TopicAgent(
                 "Salaris-agent",
-                "Je bent de salaris-specialist. Beantwoord alleen vragen over salaris, looncomponenten, toeslagen en uitbetaling.",
+                "Je bent de salaris-specialist. Bij vragen over specifieke functies zoals TC consultant, baseer je antwoord alleen op wat er onder dat kopje staat. Beantwoord alleen vragen over salaris, looncomponenten, toeslagen en uitbetaling.",
                 "Onderwerp: salaris, loonstrook, uitbetaling, bonus, declaraties, loontabellen, vergoedingen, inhoudingen en fiscale componenten."
         ));
 
@@ -450,11 +450,23 @@ bubble.setSize(new Dimension(700, Short.MAX_VALUE));
                 "Je bent de verzuim-specialist. Beantwoord alleen vragen over verzuim, arbo, gezondheidsbeleid en preventie.",
                 "Onderwerp: Verzuim, ziekte, gezondheidsbeleid, arbo, preventie en re-integratie"
         ));
+          
+       topicAgents.add(new TopicAgent(
+                "Vergoeding-agent",
+                "Je bent de vergoeding-specialist. Beantwoord alleen vragen over vergoeding, thuiswerk.",
+                "Onderwerp: thuiswerken, vergoeding, onkosten, declareren"
+        ));
         
+         topicAgents.add(new TopicAgent(
+                "Kennisontwikkeling-agent",
+                "Je bent de kennis-specialist. Beantwoord alleen vragen over kennisontwikkeling, training en studieschuld.",
+                "Onderwerp: TC training, training, studieregeling, studieschuld, kennisbehoefte,"
+        ));
+       
         topicAgents.add(new TopicAgent(
                 "Algemene HR-agent",
                 "Je bent een algemene HR-agent. Beantwoord de vraag alleen als deze in de context van de personeelsgids staat.",
-                "Onderwerp: algemene HR-vragen over beleid, klachtenprocedures, gedragscode, ontwikkeling en arbeidsvoorwaarden."
+                "Onderwerp: algemene HR-vragen over beleid, klachtenprocedures, gedragscode, algemene bepalingen, naleving, referral, werktijden, werkplek, pensioen, talentclass en arbeidsvoorwaarden."
         ));
 
         for (TopicAgent agent : topicAgents) {
