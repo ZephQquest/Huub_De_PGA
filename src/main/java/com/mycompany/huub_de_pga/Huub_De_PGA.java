@@ -403,15 +403,26 @@ bubble.setSize(new Dimension(700, Short.MAX_VALUE));
 
         List<Chunk> results = new ArrayList<>();
         Set<Chunk> added = new HashSet<>();
+        
+        boolean talentclassVraag = isTalentclassQuestion(query);
+        boolean referralVraag = isReferralQuestion(query);
 
         // 1) Eerst alleen voldoende relevante chunks.
         for (Map.Entry<Chunk, Double> entry : scoredChunks) {
             if (entry.getValue() < MIN_SIMILARITY) {
                 break;
             }
-           
 
-           Chunk candidate = entry.getKey();
+            Chunk candidate = entry.getKey();
+            
+          if (talentclassVraag && !referralVraag && !isTalentclassChunk(candidate)) {
+                continue;
+            }
+            if (talentclassVraag && !referralVraag && isBonusQuestion(query) && (candidate.text == null || !candidate.text.toLowerCase(Locale.ROOT).contains("bonus"))) {
+                continue;
+            }
+
+
             if (candidate.text != null && !candidate.text.isBlank() && added.add(candidate)) {
                 results.add(candidate);
             }
@@ -422,8 +433,16 @@ bubble.setSize(new Dimension(700, Short.MAX_VALUE));
         }
 
         // 2) Fallback: als er te weinig relevante chunks zijn, vul aan met best scorende overigen.
+        // Bij Talentclass-vragen vullen we alleen aan met chunks die Talentclass expliciet noemen.
         for (Map.Entry<Chunk, Double> entry : scoredChunks) {
             Chunk candidate = entry.getKey();
+            if (talentclassVraag && !referralVraag && !isTalentclassChunk(candidate)) {
+                continue;
+            }
+            if (talentclassVraag && !referralVraag && isBonusQuestion(query) && (candidate.text == null || !candidate.text.toLowerCase(Locale.ROOT).contains("bonus"))) {
+                continue;
+            }
+
             if (candidate.text != null && !candidate.text.isBlank() && added.add(candidate)) {
                 results.add(candidate);
             }
@@ -434,6 +453,85 @@ bubble.setSize(new Dimension(700, Short.MAX_VALUE));
         }
 
         return results;
+    }
+ private boolean isTalentclassQuestion(String query) {
+        String normalized = query.toLowerCase(Locale.ROOT);
+        return normalized.contains("talentclass")
+                || normalized.contains("tc consultant")
+                || normalized.contains("tc-consultant");
+    }
+
+    private boolean isTalentclassChunk(Chunk chunk) {
+        if (chunk == null || chunk.text == null) {
+            return false;
+        }
+
+        String normalized = chunk.text.toLowerCase(Locale.ROOT);
+        return normalized.contains("talentclass")
+                || normalized.contains("talent class")
+                || normalized.contains("tc consultant")
+                || normalized.contains("tc-consultant")
+                || normalized.contains("tc consultants")
+                || normalized.contains("tc-consultants");
+    }
+
+    private boolean isBonusQuestion(String query) {
+        String normalized = query.toLowerCase(Locale.ROOT);
+        return normalized.contains("bonus")
+                || normalized.contains("kwartaalbonus")
+                || normalized.contains("variabele beloning");
+    }
+
+    private boolean isReferralQuestion(String query) {
+        String normalized = query.toLowerCase(Locale.ROOT);
+        return normalized.contains("referral")
+                || normalized.contains("voordraag")
+                || normalized.contains("voordragen")
+                || normalized.contains("aandraag")
+                || normalized.contains("aandragen")
+                || normalized.contains("iemand aanbreng")
+                || normalized.contains("iemand voordraag");
+    }
+
+    private Optional<String> buildTalentclassBonusAnswer(String question, List<Chunk> contextChunks, String agentLabel) {
+        if (!isTalentclassQuestion(question) || !isBonusQuestion(question) || isReferralQuestion(question)) {
+            return Optional.empty();
+        }
+
+        for (Chunk chunk : contextChunks) {
+            if (chunk == null || chunk.text == null) {
+                continue;
+            }
+
+            String normalized = chunk.text.toLowerCase(Locale.ROOT);
+            if (!isTalentclassChunk(chunk) || !normalized.contains("bonus")) {
+                continue;
+            }
+
+            if (normalized.matches(".*geen\\s+.{0,35}bonus.*")
+                    || normalized.matches(".*niet\\s+.{0,35}bonus.*")
+                    || normalized.matches(".*zonder\\s+.{0,35}bonus.*")) {
+                return Optional.of(
+                        "Antwoord: Nee, Talentclass Consultants krijgen geen bonus volgens de personeelsgids.\n" +
+                                "Bron: PAGINA " + chunk.page + ".\n" +
+                                "Agent: " + agentLabel
+                );
+            }
+
+            if (normalized.matches(".*krijg.{0,35}bonus.*") || normalized.matches(".*recht\\s+op\\s+.{0,35}bonus.*")) {
+                return Optional.of(
+                        "Antwoord: Ja, volgens de personeelsgids is er een bonusregeling voor Talentclass Consultants.\n" +
+                                "Bron: PAGINA " + chunk.page + ".\n" +
+                                "Agent: " + agentLabel
+                );
+            }
+        }
+
+        return Optional.of(
+                "Antwoord: Ik kan in de Talentclass-context geen expliciete informatie over een bonusregeling vinden.\n" +
+                        "Bron: N.v.t.\n" +
+                        "Agent: " + agentLabel
+        );
     }
 
             // Initialiseert onderwerp-agents en bouwt semantische embeddings voor routering zonder trefwoorden.
@@ -542,6 +640,11 @@ bubble.setSize(new Dimension(700, Short.MAX_VALUE));
 
         String contextString = contextText.toString();
         
+         Optional<String> talentclassBonusAnswer = buildTalentclassBonusAnswer(question, topChunks, selectedAgent.label);
+        if (talentclassBonusAnswer.isPresent()) {
+            return talentclassBonusAnswer.get();
+        }
+
 
         // 👉 JOUW PROMPT EXACT
         String systemPrompt =
@@ -562,7 +665,8 @@ bubble.setSize(new Dimension(700, Short.MAX_VALUE));
 
 "2. Scope: Behandel uitsluitend vragen die binnen het geselecteerde onderwerp vallen. " +
 "Bij gemengde vragen behandel je alleen het deel dat binnen het onderwerp past en benoem je kort dat er voor andere onderwerpen een nieuwe vraag gesteld moet worden. " +
-
+"Als de vraag een specifieke doelgroep/functie noemt (zoals Talentclass of TC consultant), gebruik dan alleen context waarin die doelgroep/functie expliciet voorkomt, behalve bij referral/voordracht-vragen waar een algemene referralregeling van toepassing kan zijn. " +
+                
 "3. Geen Hallucinaties: Verzin nooit paginanummers, citaten, data of percentages die niet letterlijk in de tekst staan. " +
 
 "4. Bronvermelding (verplicht): " +
